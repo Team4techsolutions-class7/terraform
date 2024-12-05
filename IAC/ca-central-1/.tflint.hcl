@@ -1,4 +1,4 @@
-plugin "aws" {
+plugin "terraform" {
   enabled = true
-  region  = "ca-central-1"
+  preset  = "recommended"
 }
