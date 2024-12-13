@@ -1,6 +1,5 @@
 name: Terraform Pre-Merge Validation
 
-# Run this workflow on pull requests targeting the main branch
 on:
   pull_request:
     branches:
@@ -18,20 +17,24 @@ jobs:
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
         with:
-          terraform_version: 1.5.7  # Use the Terraform version you're using
+          terraform_version: 1.5.7
+
+      - name: Navigate to Terraform Configuration Directory
+        working-directory: infrastructure  # Replace 'infrastructure' with your directory path
+        run: echo "Switched to the Terraform configuration directory"
 
       - name: Validate Terraform format
+        working-directory: IAC  # Same directory
         run: terraform fmt -check
-        continue-on-error: false  # Fail if format is incorrect
 
       - name: Initialize Terraform
-        run: terraform init -backend=false  # Skip backend initialization
-        continue-on-error: false  # Fail if init doesn't succeed
+        working-directory: IAC  # Same directory
+        run: terraform init -backend=false
 
       - name: Validate Terraform
+        working-directory: IAC  # Same directory
         run: terraform validate
-        continue-on-error: false  # Fail if validation fails
 
       - name: Generate Terraform Plan
+        working-directory: IAC  # Same directory
         run: terraform plan -out=tfplan
-        continue-on-error: false  # Fail if plan generation fails
