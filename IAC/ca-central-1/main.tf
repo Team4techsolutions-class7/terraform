@@ -20,5 +20,4 @@ module "ec2_instance" {
   instance_name = "Jenkins"
 }
 
-#notes
-#notes2
+
