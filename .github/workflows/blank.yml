@@ -28,7 +28,7 @@ jobs:
         run: terraform fmt -check
 
       - name: Initialize Terraform
-        working-directory: IAC/ca-central-1e  
+        working-directory: IAC/ca-central-1 
         run: terraform init -backend=false
 
       - name: Validate Terraform
