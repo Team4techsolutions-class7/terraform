@@ -1,0 +1,40 @@
+name: Terraform Pre-Merge Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  terraform-checks:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Navigate to Terraform Configuration Directory
+        working-directory: IAC/ca-central-1  
+        run: echo "Switched to the Terraform configuration directory"
+
+      - name: Validate Terraform format
+        working-directory: IAC/ca-central-1  # Same directory
+        run: terraform fmt -check
+
+      - name: Initialize Terraform
+        working-directory: IAC/ca-central-1e  # Same directory
+        run: terraform init -backend=false
+
+      - name: Validate Terraform
+        working-directory: IAC/ca-central-1  # Same directory
+        run: terraform validate
+
+      - name: Generate Terraform Plan
+        working-directory: IAC/ca-central-1  # Same directory
+        run: terraform plan -out=tfplan
