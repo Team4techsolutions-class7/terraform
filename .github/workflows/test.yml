@@ -25,7 +25,7 @@ jobs:
       - name: Determine Changed Directory
         id: env
         run: |
-          # Find which environment (dev, staging, production) has changed
+          # Find which environment (dev, staging, production, ca-central-1) has changed
           CHANGED_DIR=$(git diff --name-only origin/main | grep "^${BASE_DIR}/" | cut -d '/' -f2 | uniq)
           if [ -z "$CHANGED_DIR" ]; then
             echo "No changes detected in the environment directories."
@@ -57,6 +57,9 @@ jobs:
               echo "ROLE_ARN=arn:aws:iam::257394485697:role/TerraformExecutionRole" >> $GITHUB_ENV
               ;;
             production)
+              echo "ROLE_ARN=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
+              ;;
+            ca-central-1)
               echo "ROLE_ARN=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
               ;;
             *)
