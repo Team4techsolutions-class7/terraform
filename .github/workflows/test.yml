@@ -1,0 +1,99 @@
+name: Terraform Pre-Merge Validation
+
+on:
+  pull_request:
+    branches:
+      - main  # Trigger only on PRs targeting main
+  workflow_dispatch:  # Allow manual triggering if needed
+
+permissions:
+  id-token: write
+  contents: read  # Required for checkout
+
+jobs:
+  terraform-checks:
+    runs-on: ubuntu-latest
+    env:
+      BASE_DIR: IAC  # Base directory for environments
+
+    steps:
+      # Step 1: Check out the code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Determine which directory (environment) has changed
+      - name: Determine Changed Directory
+        id: env
+        run: |
+          # Find which environment (dev, staging, production) has changed
+          CHANGED_DIR=$(git diff --name-only origin/main | grep "^${BASE_DIR}/" | cut -d '/' -f2 | uniq)
+          if [ -z "$CHANGED_DIR" ]; then
+            echo "No changes detected in the environment directories."
+            exit 1
+          fi
+          echo "ENVIRONMENT=$CHANGED_DIR" >> $GITHUB_ENV
+          echo "Detected environment: $CHANGED_DIR"
+
+      # Step 3: Assume the central role (Github-access) in the main account
+      - name: Set up AWS Credentials for Central Role
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::891377304437:role/Github-access
+          aws-region: ca-central-1
+
+      # Step 4: Debug to verify the central role assumption
+      - name: Verify Central Role Assumption
+        run: aws sts get-caller-identity
+
+      # Step 5: Determine the role ARN based on the environment
+      - name: Assume Role for Environment
+        id: assume
+        run: |
+          case $ENVIRONMENT in
+            dev)
+              echo "ROLE_ARN=arn:aws:iam::724772074988:role/TerraformExecutionRole" >> $GITHUB_ENV
+              ;;
+            staging)
+              echo "ROLE_ARN=arn:aws:iam::257394485697:role/TerraformExecutionRole" >> $GITHUB_ENV
+              ;;
+            production)
+              echo "ROLE_ARN=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
+              ;;
+            *)
+              echo "Unknown environment: $ENVIRONMENT"
+              exit 1
+              ;;
+          esac
+          echo "Using role: $ROLE_ARN"
+
+      # Step 6: Assume the environment-specific role
+      - name: Configure AWS for Environment Role
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ca-central-1
+
+      # Step 7: Debug to verify the environment-specific role assumption
+      - name: Verify Environment Role Assumption
+        run: aws sts get-caller-identity
+
+      # Step 8: Set up Terraform
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      # Step 9: Initialize Terraform in the environment directory
+      - name: Initialize Terraform
+        working-directory: ${{ env.BASE_DIR }}/${{ env.ENVIRONMENT }}
+        run: terraform init
+
+      # Step 10: Validate Terraform
+      - name: Validate Terraform
+        working-directory: ${{ env.BASE_DIR }}/${{ env.ENVIRONMENT }}
+        run: terraform validate
+
+      # Step 11: Plan Terraform Changes
+      - name: Plan Terraform Changes
+        working-directory: ${{ env.BASE_DIR }}/${{ env.ENVIRONMENT }}
+        run: terraform plan
