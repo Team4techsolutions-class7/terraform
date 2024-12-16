@@ -17,20 +17,27 @@ jobs:
       BASE_DIR: IAC  # Base directory for environments
 
     steps:
-      # Step 1: Check out the code
+      # Step 1: Check out the code with full history
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Fetch all history for all branches
 
       # Step 2: Determine which directory (environment) has changed
       - name: Determine Changed Directory
         id: env
         run: |
+          # Fetch the main branch if it doesn't exist locally
+          git fetch origin main || echo "No remote main branch found. Skipping fetch."
+
           # Find which environment (dev, staging, production, ca-central-1) has changed
-          CHANGED_DIR=$(git diff --name-only origin/main | grep "^${BASE_DIR}/" | cut -d '/' -f2 | uniq)
+          CHANGED_DIR=$(git diff --name-only origin/main HEAD | grep "^${BASE_DIR}/" | cut -d '/' -f2 | uniq)
+
           if [ -z "$CHANGED_DIR" ]; then
             echo "No changes detected in the environment directories."
-            exit 1
+            exit 0
           fi
+
           echo "ENVIRONMENT=$CHANGED_DIR" >> $GITHUB_ENV
           echo "Detected environment: $CHANGED_DIR"
 
