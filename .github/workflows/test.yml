@@ -68,7 +68,10 @@ jobs:
             staging)
               echo "ROLE_ARN=arn:aws:iam::257394485697:role/TerraformExecutionRole" >> $GITHUB_ENV
               ;;
-            production|ca-central-1)
+            production)
+              echo "ROLE_ARN=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
+              ;;
+            ca-central-1)
               echo "ROLE_ARN=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
               ;;
             *)
