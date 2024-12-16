@@ -35,24 +35,29 @@ jobs:
 
           if [ -z "$CHANGED_DIR" ]; then
             echo "No changes detected in the environment directories."
-            exit 0
+            exit 1
           fi
 
           echo "ENVIRONMENT=$CHANGED_DIR" >> $GITHUB_ENV
           echo "Detected environment: $CHANGED_DIR"
 
-      # Step 3: Assume the central role (Github-access) in the main account
+      # Step 3: Debug the environment and directory detection
+      - name: Debug Environment Detection
+        run: |
+          echo "Detected environment: $ENVIRONMENT"
+
+      # Step 4: Assume the central role (Github-access) in the main account
       - name: Set up AWS Credentials for Central Role
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: arn:aws:iam::891377304437:role/Github-access
           aws-region: ca-central-1
 
-      # Step 4: Debug to verify the central role assumption
+      # Step 5: Debug to verify the central role assumption
       - name: Verify Central Role Assumption
         run: aws sts get-caller-identity
 
-      # Step 5: Determine the role ARN based on the environment
+      # Step 6: Determine the role ARN based on the environment
       - name: Assume Role for Environment
         id: assume
         run: |
@@ -63,10 +68,7 @@ jobs:
             staging)
               echo "ROLE_ARN=arn:aws:iam::257394485697:role/TerraformExecutionRole" >> $GITHUB_ENV
               ;;
-            production)
-              echo "ROLE_ARN=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
-              ;;
-            ca-central-1)
+            production|ca-central-1)
               echo "ROLE_ARN=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
               ;;
             *)
@@ -76,34 +78,50 @@ jobs:
           esac
           echo "Using role: $ROLE_ARN"
 
-      # Step 6: Assume the environment-specific role
+      # Step 7: Debug the selected Role ARN
+      - name: Debug Role ARN
+        run: |
+          echo "Environment: $ENVIRONMENT"
+          echo "Selected Role ARN: $ROLE_ARN"
+
+      # Step 8: Assume the environment-specific role
       - name: Configure AWS for Environment Role
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ env.ROLE_ARN }}
           aws-region: ca-central-1
 
-      # Step 7: Debug to verify the environment-specific role assumption
+      # Step 9: Debug all AWS environment variables
+      - name: Debug AWS Environment Variables
+        run: env | grep AWS
+
+      # Step 10: Verify the environment-specific role assumption
       - name: Verify Environment Role Assumption
         run: aws sts get-caller-identity
 
-      # Step 8: Set up Terraform
+      # Step 11: Debug the OIDC Token
+      - name: Debug OIDC Token
+        run: |
+          curl -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+               "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com"
+
+      # Step 12: Set up Terraform
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
 
-      # Step 9: Initialize Terraform in the environment directory
+      # Step 13: Initialize Terraform in the environment directory
       - name: Initialize Terraform
         working-directory: ${{ env.BASE_DIR }}/${{ env.ENVIRONMENT }}
         run: terraform init
 
-      # Step 10: Validate Terraform
+      # Step 14: Validate Terraform
       - name: Validate Terraform
         working-directory: ${{ env.BASE_DIR }}/${{ env.ENVIRONMENT }}
         run: terraform validate
 
-      # Step 11: Plan Terraform Changes
+      # Step 15: Plan Terraform Changes
       - name: Plan Terraform Changes
         working-directory: ${{ env.BASE_DIR }}/${{ env.ENVIRONMENT }}
         run: terraform plan
