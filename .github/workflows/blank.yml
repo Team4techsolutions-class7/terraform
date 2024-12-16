@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read  # Required for checkout
+
 jobs:
   terraform-checks:
     name: Validate Terraform
