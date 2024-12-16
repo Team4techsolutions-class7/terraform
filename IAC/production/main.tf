@@ -11,6 +11,12 @@ terraform {
 
 provider "aws" {
   region = "ca-central-1"
+
+  # Assume the Github-access role in the main account
+  assume_role {
+    role_arn     = "arn:aws:iam::891377304437:role/Github-access"
+    session_name = "terraform-session"
+  }
 }
 
 module "ec2_instance" {
@@ -19,6 +25,3 @@ module "ec2_instance" {
   instance_type = "t2.micro"
   instance_name = "Jenkins"
 }
-
-#test
-#test2
