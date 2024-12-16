@@ -1,0 +1,51 @@
+name: Terraform Pre-Merge Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read  # Required for checkout
+
+jobs:
+  terraform-checks:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::891377304437:role/Github-access
+          aws-region: ca-central-1
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Navigate to Terraform Configuration Directory
+        working-directory: IAC/ca-central-1
+        run: echo "Switched to the Terraform configuration directory"
+
+      - name: Validate Terraform format
+        working-directory: IAC/ca-central-1
+        run: terraform fmt -check
+
+      - name: Initialize Terraform
+        working-directory: IAC/ca-central-1
+        run: terraform init
+
+      - name: Validate Terraform
+        working-directory: IAC/ca-central-1
+        run: terraform validate
+
+      - name: Generate Terraform Plan
+        working-directory: IAC/ca-central-1
+        run: terraform plan -out=tfplan
