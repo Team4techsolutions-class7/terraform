@@ -1,15 +1,14 @@
-
 name: Terraform Pre-Merge Validation
 
 on:
   pull_request:
     branches:
-      - '**'  
+      - '**'  # Trigger for all branches
   workflow_dispatch:
 
 permissions:
   id-token: write
-  contents: read  
+  contents: read  # Required for checkout
 
 jobs:
   terraform-checks:
@@ -19,38 +18,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0  
-
-      - name: Debug Git History
-        run: |
-          echo "HEAD is at: $(git rev-parse HEAD)"
-          echo "Changes compared to base branch:"
-          git diff --name-only ${{ github.event.pull_request.base.sha }}
-
-      - name: Determine Changed Directory
-        id: detect_changes
-        run: |
-          # Detect the directory with changes
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }})
-
-          echo "Changed files: $CHANGED_FILES"
-
-          if echo "$CHANGED_FILES" | grep -q 'IAC/ca-central-1'; then
-            echo "dir=IAC/ca-central-1" >> $GITHUB_ENV
-            echo "role=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
-          elif echo "$CHANGED_FILES" | grep -q 'IAC/dev'; then
-            echo "dir=IAC/dev" >> $GITHUB_ENV
-            echo "role=arn:aws:iam::891377304437:role/Dev-Github-access" >> $GITHUB_ENV
-          else
-            echo "No relevant changes detected."
-            exit 1
-          fi
 
       - name: Set up AWS Credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: ${{ env.role }}
+          role-to-assume: arn:aws:iam::891377304437:role/Github-access
           aws-region: ca-central-1
 
       - name: Verify AWS Identity
@@ -61,23 +33,22 @@ jobs:
         with:
           terraform_version: 1.5.7
 
-      - name: Debug Environment Variables
-        run: |
-          echo "Working Directory: ${{ env.dir }}"
-          echo "Role to Assume: ${{ env.role }}"
+      - name: Navigate to Terraform Configuration Directory
+        working-directory: IAC/ca-central-1
+        run: echo "Switched to the Terraform configuration directory"
 
       - name: Validate Terraform format
+        working-directory: IAC/ca-central-1
         run: terraform fmt -check
-        working-directory: ${{ env.dir }}
 
       - name: Initialize Terraform
+        working-directory: IAC/ca-central-1
         run: terraform init
-        working-directory: ${{ env.dir }}
 
       - name: Validate Terraform
+        working-directory: IAC/ca-central-1
         run: terraform validate
-        working-directory: ${{ env.dir }}
 
       - name: Generate Terraform Plan
+        working-directory: IAC/ca-central-1
         run: terraform plan -out=tfplan
-        working-directory: ${{ env.dir }}
