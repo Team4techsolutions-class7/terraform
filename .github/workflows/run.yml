@@ -40,7 +40,7 @@ jobs:
             echo "role=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
           elif echo "$CHANGED_FILES" | grep -q 'IAC/dev'; then
             echo "dir=IAC/dev" >> $GITHUB_ENV
-            echo "arn:aws:iam::257394485697:role/TerraformExecutionRole" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::257394485697:role/TerraformExecutionRole" >> $GITHUB_ENV
           else
             echo "No relevant changes detected."
             exit 1
