@@ -20,4 +20,3 @@ module "ec2_instance" {
   instance_name = "Jenkins"
 }
 
-#test
