@@ -15,8 +15,8 @@ provider "aws" {
 
 module "ec2_instance" {
   source        = "../modules/ec2-instance"
-  ami_id        = "ami-0c9f6749650d5c0e3"
+  ami_id        = "ami-0bee12a638c7a8942"
   instance_type = "t2.micro"
   instance_name = "Jenkins"
-
+}
 
