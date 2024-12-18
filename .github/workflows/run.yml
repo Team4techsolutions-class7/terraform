@@ -18,15 +18,27 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Ensure full history is fetched for `git diff`
+
+      - name: Debug Git History
+        run: |
+          echo "HEAD is at: $(git rev-parse HEAD)"
+          echo "Changes compared to base branch:"
+          git diff --name-only ${{ github.event.pull_request.base.sha }}
 
       - name: Determine Changed Directory
         id: detect_changes
         run: |
           # Detect the directory with changes
-          if git diff --name-only HEAD^ HEAD | grep -q 'IAC/ca-central-1'; then
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }})
+
+          echo "Changed files: $CHANGED_FILES"
+
+          if echo "$CHANGED_FILES" | grep -q 'IAC/ca-central-1'; then
             echo "dir=IAC/ca-central-1" >> $GITHUB_ENV
             echo "role=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
-          elif git diff --name-only HEAD^ HEAD | grep -q 'IAC/dev'; then
+          elif echo "$CHANGED_FILES" | grep -q 'IAC/dev'; then
             echo "dir=IAC/dev" >> $GITHUB_ENV
             echo "role=arn:aws:iam::891377304437:role/Dev-Github-access" >> $GITHUB_ENV
           else
