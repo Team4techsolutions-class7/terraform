@@ -3,8 +3,8 @@ name: Terraform Pre-Merge Validation
 on:
   pull_request:
     branches:
-      - main  # Trigger only on PRs targeting main
-  workflow_dispatch:  # Allow manual triggering if needed
+      - '**'  # Trigger for all branches
+  workflow_dispatch:
 
 permissions:
   id-token: write
@@ -12,66 +12,58 @@ permissions:
 
 jobs:
   terraform-checks:
+    name: Validate Terraform
     runs-on: ubuntu-latest
-    env:
-      BASE_DIR: IAC  # Base directory for environments
 
     steps:
-      # Step 1: Check out the code with full history
       - name: Checkout code
         uses: actions/checkout@v3
-        with:
-          fetch-depth: 0  # Fetch all history for all branches
 
-      # Step 2: Determine which directory (environment) has changed
       - name: Determine Changed Directory
-        id: env
+        id: detect_changes
         run: |
-          # Fetch the main branch if it doesn't exist locally
-          git fetch origin main || echo "No remote main branch found. Skipping fetch."
-
-          # Find which environment (dev, staging, production, ca-central-1) has changed
-          CHANGED_DIR=$(git diff --name-only origin/main HEAD | grep "^${BASE_DIR}/" | cut -d '/' -f2 | uniq)
-
-          if [ -z "$CHANGED_DIR" ]; then
-            echo "No changes detected in the environment directories."
+          # Detect the directory with changes
+          if git diff --name-only HEAD^ HEAD | grep -q 'IAC/ca-central-1'; then
+            echo "dir=IAC/ca-central-1" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
+          elif git diff --name-only HEAD^ HEAD | grep -q 'IAC/dev'; then
+            echo "dir=IAC/dev" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::891377304437:role/Dev-Github-access" >> $GITHUB_ENV
+          else
+            echo "No relevant changes detected."
             exit 1
           fi
 
-          echo "ENVIRONMENT=$CHANGED_DIR" >> $GITHUB_ENV
-          echo "Detected environment: $CHANGED_DIR"
-
-      # Step 3: Debug the detected environment
-      - name: Debug Environment
-        run: |
-          echo "Environment: $ENVIRONMENT"
-
-      # Step 4: Set up AWS Credentials for Central Role
-      - name: Configure AWS Credentials
+      - name: Set up AWS Credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::891377304437:role/Github-access
+          role-to-assume: ${{ env.role }}
           aws-region: ca-central-1
 
-      # Step 5: Debug AWS Identity
-      - name: Debug AWS Identity
+      - name: Verify AWS Identity
         run: aws sts get-caller-identity
 
-      # Step 6: Test OIDC Role Assumption Directly
-      - name: Test OIDC Role Assumption
-        run: |
-          aws sts assume-role-with-web-identity \
-            --role-arn arn:aws:iam::891377304437:role/Github-access \
-            --role-session-name test-session \
-            --web-identity-token $ACTIONS_ID_TOKEN_REQUEST_TOKEN \
-            --duration-seconds 900
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
 
-      # Step 7: Debug AWS Environment Variables
-      - name: Debug AWS Environment Variables
-        run: env | grep AWS
+      - name: Navigate to Terraform Configuration Directory
+        working-directory: ${{ env.dir }}
+        run: echo "Switched to the Terraform configuration directory: ${{ env.dir }}"
 
-      # Step 8: Debug OIDC Token
-      - name: Debug OIDC Token
-        run: |
-          curl -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-               "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com"
+      - name: Validate Terraform format
+        working-directory: ${{ env.dir }}
+        run: terraform fmt -check
+
+      - name: Initialize Terraform
+        working-directory: ${{ env.dir }}
+        run: terraform init
+
+      - name: Validate Terraform
+        working-directory: ${{ env.dir }}
+        run: terraform validate
+
+      - name: Generate Terraform Plan
+        working-directory: ${{ env.dir }}
+        run: terraform plan -out=tfplan
