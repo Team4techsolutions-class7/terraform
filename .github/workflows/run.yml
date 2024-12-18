@@ -47,19 +47,26 @@ jobs:
           fi
 
       - name: Set up AWS Credentials (Account A)
-        if: env.dir == 'IAC/ca-central-1'
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: arn:aws:iam::891377304437:role/Github-access
           aws-region: ca-central-1
 
-      - name: Set up AWS Credentials for Cross-Account (Account B)
+      - name: Assume Cross-Account Role (Account B)
         if: env.dir == 'IAC/dev'
         run: |
-          TEMP_CREDS=$(aws sts assume-role --role-arn arn:aws:iam::257394485697:role/TerraformExecutionRole --role-session-name CrossAccountSession)
+          ROLE_ARN="arn:aws:iam::257394485697:role/TerraformExecutionRole"
+          TEMP_CREDS=$(aws sts assume-role --role-arn $ROLE_ARN --role-session-name CrossAccountSession)
           echo "AWS_ACCESS_KEY_ID=$(echo $TEMP_CREDS | jq -r .Credentials.AccessKeyId)" >> $GITHUB_ENV
           echo "AWS_SECRET_ACCESS_KEY=$(echo $TEMP_CREDS | jq -r .Credentials.SecretAccessKey)" >> $GITHUB_ENV
           echo "AWS_SESSION_TOKEN=$(echo $TEMP_CREDS | jq -r .Credentials.SessionToken)" >> $GITHUB_ENV
+
+      - name: Export Assumed Role Credentials
+        if: env.dir == 'IAC/dev'
+        run: |
+          export AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
+          export AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
+          export AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN }}
 
       - name: Verify AWS Identity
         run: aws sts get-caller-identity
