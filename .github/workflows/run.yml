@@ -37,7 +37,7 @@ jobs:
       - name: Set up AWS Credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: ${{ env.role }}
+          role-to-assume: ${{ env.dir }}
           aws-region: ca-central-1
 
       - name: Verify AWS Identity
@@ -49,21 +49,20 @@ jobs:
           terraform_version: 1.5.7
 
       - name: Navigate to Terraform Configuration Directory
-        working-directory: ${{ env.dir }}
         run: echo "Switched to the Terraform configuration directory: ${{ env.dir }}"
 
       - name: Validate Terraform format
-        working-directory: ${{ env.dir }}
         run: terraform fmt -check
+        working-directory: ${{ env.dir }}
 
       - name: Initialize Terraform
-        working-directory: ${{ env.dir }}
         run: terraform init
+        working-directory: ${{ env.dir }}
 
       - name: Validate Terraform
-        working-directory: ${{ env.dir }}
         run: terraform validate
+        working-directory: ${{ env.dir }}
 
       - name: Generate Terraform Plan
-        working-directory: ${{ env.dir }}
         run: terraform plan -out=tfplan
+        working-directory: ${{ env.dir }}
