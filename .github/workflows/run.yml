@@ -48,21 +48,23 @@ jobs:
         with:
           terraform_version: 1.5.7
 
-      - name: Navigate to Terraform Configuration Directory
-        run: echo "Switched to the Terraform configuration directory: ${{ env.dir }}"
+      - name: Debug Environment Variables
+        run: |
+          echo "Working Directory: ${{ env.dir }}"
+          echo "Role to Assume: ${{ env.role }}"
 
       - name: Validate Terraform format
-        working-directory: ${{ env.dir }}
         run: terraform fmt -check
+        working-directory: ${{ env.dir }}
 
       - name: Initialize Terraform
-        working-directory: ${{ env.dir }}
         run: terraform init
+        working-directory: ${{ env.dir }}
 
       - name: Validate Terraform
-        working-directory: ${{ env.dir }}
         run: terraform validate
+        working-directory: ${{ env.dir }}
 
       - name: Generate Terraform Plan
-        working-directory: ${{ env.dir }}
         run: terraform plan -out=tfplan
+        working-directory: ${{ env.dir }}
