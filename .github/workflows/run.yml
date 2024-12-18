@@ -4,12 +4,12 @@ name: Terraform Pre-Merge Validation
 on:
   pull_request:
     branches:
-      - '**'  # Trigger for all branches
+      - '**'  
   workflow_dispatch:
 
 permissions:
   id-token: write
-  contents: read  # Required for checkout
+  contents: read  
 
 jobs:
   terraform-checks:
@@ -20,7 +20,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Ensure full history is fetched for `git diff`
+          fetch-depth: 0  
 
       - name: Debug Git History
         run: |
