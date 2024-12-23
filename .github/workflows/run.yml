@@ -41,32 +41,28 @@ jobs:
           elif echo "$CHANGED_FILES" | grep -q 'IAC/dev'; then
             echo "dir=IAC/dev" >> $GITHUB_ENV
             echo "role=arn:aws:iam::257394485697:role/TerraformExecutionRole" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'IAC/eu-west-2'; then
+            echo "dir=IAC/eu-west-2" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::123456789012:role/EUWestRole" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'IAC/production'; then
+            echo "dir=IAC/production" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::234567890123:role/ProductionRole" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'IAC/staging'; then
+            echo "dir=IAC/staging" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::345678901234:role/StagingRole" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'IAC/us-east-1'; then
+            echo "dir=IAC/us-east-1" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::456789012345:role/USEastRole" >> $GITHUB_ENV
           else
             echo "No relevant changes detected."
             exit 1
           fi
 
-      - name: Set up AWS Credentials (Account A)
+      - name: Set up AWS Credentials
         uses: aws-actions/configure-aws-credentials@v3
         with:
-          role-to-assume: arn:aws:iam::891377304437:role/Github-access
-          aws-region: ca-central-1
-
-      - name: Assume Cross-Account Role (Account B)
-        if: env.dir == 'IAC/dev'
-        run: |
-          ROLE_ARN="arn:aws:iam::257394485697:role/TerraformExecutionRole"
-          TEMP_CREDS=$(aws sts assume-role --role-arn $ROLE_ARN --role-session-name CrossAccountSession)
-          echo "AWS_ACCESS_KEY_ID=$(echo $TEMP_CREDS | jq -r .Credentials.AccessKeyId)" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=$(echo $TEMP_CREDS | jq -r .Credentials.SecretAccessKey)" >> $GITHUB_ENV
-          echo "AWS_SESSION_TOKEN=$(echo $TEMP_CREDS | jq -r .Credentials.SessionToken)" >> $GITHUB_ENV
-
-      - name: Export Assumed Role Credentials
-        if: env.dir == 'IAC/dev'
-        run: |
-          export AWS_ACCESS_KEY_ID=${{ env.AWS_ACCESS_KEY_ID }}
-          export AWS_SECRET_ACCESS_KEY=${{ env.AWS_SECRET_ACCESS_KEY }}
-          export AWS_SESSION_TOKEN=${{ env.AWS_SESSION_TOKEN }}
+          role-to-assume: ${{ env.role }}
+          aws-region: ${{ env.dir##*/ }}
 
       - name: Verify AWS Identity
         run: aws sts get-caller-identity
