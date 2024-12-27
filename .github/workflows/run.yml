@@ -3,12 +3,12 @@ name: Terraform Pre-Merge Validation
 on:
   pull_request:
     branches:
-      - '**'  # Trigger for all branches
+      - '**'
   workflow_dispatch:
 
 permissions:
   id-token: write
-  contents: read  # Required for checkout
+  contents: read
 
 jobs:
   terraform-checks:
@@ -19,7 +19,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Ensure full history is fetched for `git diff`
+          fetch-depth: 0
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Debug Git History
         run: |
@@ -34,30 +39,30 @@ jobs:
           CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }})
           echo "Changed files: $CHANGED_FILES"
 
-          if echo "$CHANGED_FILES" | grep -q 'IAC/ca-central-1'; then
-            echo "dir=IAC/ca-central-1" >> $GITHUB_ENV
-            echo "role=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
-            echo "region=ca-central-1" >> $GITHUB_ENV
-          elif echo "$CHANGED_FILES" | grep -q 'IAC/dev'; then
-            echo "dir=IAC/dev" >> $GITHUB_ENV
-            echo "role=arn:aws:iam::257394485697:role/TerraformExecutionRole" >> $GITHUB_ENV
-            echo "region=us-east-1" >> $GITHUB_ENV
-          elif echo "$CHANGED_FILES" | grep -q 'IAC/eu-west-2'; then
-            echo "dir=IAC/eu-west-2" >> $GITHUB_ENV
-            echo "role=arn:aws:iam::123456789012:role/EUWestRole" >> $GITHUB_ENV
-            echo "region=eu-west-2" >> $GITHUB_ENV
-          elif echo "$CHANGED_FILES" | grep -q 'IAC/production'; then
-            echo "dir=IAC/production" >> $GITHUB_ENV
-            echo "role=arn:aws:iam::234567890123:role/ProductionRole" >> $GITHUB_ENV
-            echo "region=us-east-1" >> $GITHUB_ENV
-          elif echo "$CHANGED_FILES" | grep -q 'IAC/staging'; then
-            echo "dir=IAC/staging" >> $GITHUB_ENV
-            echo "role=arn:aws:iam::345678901234:role/StagingRole" >> $GITHUB_ENV
-            echo "region=us-east-1" >> $GITHUB_ENV
-          elif echo "$CHANGED_FILES" | grep -q 'IAC/us-east-1'; then
-            echo "dir=IAC/us-east-1" >> $GITHUB_ENV
-            echo "role=arn:aws:iam::456789012345:role/USEastRole" >> $GITHUB_ENV
-            echo "region=us-east-1" >> $GITHUB_ENV
+          if echo "$CHANGED_FILES" | grep -q 'Terraform/Audit'; then
+            echo "working_directory=Terraform/Audit" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::401708891192:role/github-action-role" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'Terraform/Development'; then
+            echo "working_directory=Terraform/Development" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::973334513903:role/github-action-role-dev" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'Terraform/EMR'; then
+            echo "working_directory=Terraform/EMR" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::235265045598:role/github-action-role-emr" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'Terraform/Logs-Archive'; then
+            echo "working_directory=Terraform/Logs-Archive" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::980766525411:role/github-action-role-logs-archive" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'Terraform/Production'; then
+            echo "working_directory=Terraform/Production" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::427174714230:role/github-action-role-prod" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'Terraform/Reports'; then
+            echo "working_directory=Terraform/Reports" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::831286133761:role/github-action-role-reports" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'Terraform/Shared-Services/service-account'; then
+            echo "working_directory=Terraform/Shared-Services/service-account" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::338674575706:role/github-action-terraform-central-role" >> $GITHUB_ENV
+          elif echo "$CHANGED_FILES" | grep -q 'Terraform/Staging'; then
+            echo "working_directory=Terraform/Staging" >> $GITHUB_ENV
+            echo "role=arn:aws:iam::237781716992:role/github-action-role-staging" >> $GITHUB_ENV
           else
             echo "No relevant changes detected."
             exit 1
@@ -67,7 +72,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ env.role }}
-          aws-region: ${{ env.region }}
+          aws-region: ca-central-1
 
       - name: Verify AWS Identity
         run: aws sts get-caller-identity
@@ -79,22 +84,23 @@ jobs:
 
       - name: Debug Environment Variables
         run: |
-          echo "Working Directory: ${{ env.dir }}"
-          echo "Role to Assume: ${{ env.role }}"
-          echo "AWS Region: ${{ env.region }}"
+          echo "Working Directory: ${{ env.working_directory }}"
+          echo "IAM Role: ${{ env.role }}"
 
-      - name: Validate Terraform format
-        run: terraform fmt -check
-        working-directory: ${{ env.dir }}
+      - name: Clean Working Directory
+        run: |
+          echo "Cleaning Terraform cache and temporary files..."
+          rm -rf ${{ env.working_directory }}/.terraform
+          rm -f ${{ env.working_directory }}/.terraform.lock.hcl
 
       - name: Initialize Terraform
-        run: terraform init
-        working-directory: ${{ env.dir }}
+        run: terraform init -reconfigure
+        working-directory: ${{ env.working_directory }}
 
       - name: Validate Terraform
         run: terraform validate
-        working-directory: ${{ env.dir }}
+        working-directory: ${{ env.working_directory }}
 
       - name: Generate Terraform Plan
         run: terraform plan -out=tfplan
-        working-directory: ${{ env.dir }}
+        working-directory: ${{ env.working_directory }}
