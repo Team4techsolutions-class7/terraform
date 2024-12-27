@@ -32,27 +32,32 @@ jobs:
         run: |
           # Detect the directory with changes
           CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }})
-
           echo "Changed files: $CHANGED_FILES"
 
           if echo "$CHANGED_FILES" | grep -q 'IAC/ca-central-1'; then
             echo "dir=IAC/ca-central-1" >> $GITHUB_ENV
             echo "role=arn:aws:iam::891377304437:role/Github-access" >> $GITHUB_ENV
+            echo "region=ca-central-1" >> $GITHUB_ENV
           elif echo "$CHANGED_FILES" | grep -q 'IAC/dev'; then
             echo "dir=IAC/dev" >> $GITHUB_ENV
             echo "role=arn:aws:iam::257394485697:role/TerraformExecutionRole" >> $GITHUB_ENV
+            echo "region=us-east-1" >> $GITHUB_ENV
           elif echo "$CHANGED_FILES" | grep -q 'IAC/eu-west-2'; then
             echo "dir=IAC/eu-west-2" >> $GITHUB_ENV
             echo "role=arn:aws:iam::123456789012:role/EUWestRole" >> $GITHUB_ENV
+            echo "region=eu-west-2" >> $GITHUB_ENV
           elif echo "$CHANGED_FILES" | grep -q 'IAC/production'; then
             echo "dir=IAC/production" >> $GITHUB_ENV
             echo "role=arn:aws:iam::234567890123:role/ProductionRole" >> $GITHUB_ENV
+            echo "region=us-east-1" >> $GITHUB_ENV
           elif echo "$CHANGED_FILES" | grep -q 'IAC/staging'; then
             echo "dir=IAC/staging" >> $GITHUB_ENV
             echo "role=arn:aws:iam::345678901234:role/StagingRole" >> $GITHUB_ENV
+            echo "region=us-east-1" >> $GITHUB_ENV
           elif echo "$CHANGED_FILES" | grep -q 'IAC/us-east-1'; then
             echo "dir=IAC/us-east-1" >> $GITHUB_ENV
             echo "role=arn:aws:iam::456789012345:role/USEastRole" >> $GITHUB_ENV
+            echo "region=us-east-1" >> $GITHUB_ENV
           else
             echo "No relevant changes detected."
             exit 1
@@ -62,7 +67,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ env.role }}
-          aws-region: ${{ env.dir##*/ }}
+          aws-region: ${{ env.region }}
 
       - name: Verify AWS Identity
         run: aws sts get-caller-identity
@@ -76,6 +81,7 @@ jobs:
         run: |
           echo "Working Directory: ${{ env.dir }}"
           echo "Role to Assume: ${{ env.role }}"
+          echo "AWS Region: ${{ env.region }}"
 
       - name: Validate Terraform format
         run: terraform fmt -check
