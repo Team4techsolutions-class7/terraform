@@ -98,10 +98,15 @@ jobs:
       - name: Lint Terraform Code
         run: |
           # Install tflint
-          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install.sh | bash
+          curl -L -o tflint.zip https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip
+          unzip tflint.zip -d /usr/local/bin
+          chmod +x /usr/local/bin/tflint
 
-          # Run tflint
-          tflint --config ${env.dir}/.tflint.hcl ${{ env.dir }}
+          # Initialize tflint
+          tflint --init
+
+          # Run tflint using IAC/.tflint.hcl configuration
+          tflint --config=${{ github.workspace }}/IAC/.tflint.hcl ${{ env.dir }}
 
       - name: Generate Terraform Plan
         run: terraform plan -out=tfplan
