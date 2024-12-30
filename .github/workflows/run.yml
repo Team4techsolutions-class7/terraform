@@ -96,7 +96,7 @@ jobs:
         working-directory: ${{ env.dir }}
 
       - name: Run tfsec Security Checks
-        uses: aquasecurity/tfsec-action@v2
+        uses: aquasecurity/tfsec-action@v1
         with:
           working-directory: ${{ env.dir }}
 
