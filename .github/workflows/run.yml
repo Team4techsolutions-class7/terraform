@@ -105,8 +105,8 @@ jobs:
           # Initialize tflint
           tflint --init
 
-          # Run tflint using IAC/.tflint.hcl configuration
-          tflint --config=${{ github.workspace }}/IAC/.tflint.hcl ${{ env.dir }}
+          # Run tflint using IAC/.tflint.hcl configuration and updated command syntax
+          tflint --config=${{ github.workspace }}/IAC/.tflint.hcl --chdir=${{ env.dir }}
 
       - name: Generate Terraform Plan
         run: terraform plan -out=tfplan
