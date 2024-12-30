@@ -95,18 +95,22 @@ jobs:
         run: terraform validate
         working-directory: ${{ env.dir }}
 
-      - name: Lint Terraform Code
+      - name: Install and Initialize tflint
         run: |
-          # Install tflint
+          echo "Downloading tflint..."
           curl -L -o tflint.zip https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip
           unzip tflint.zip -d /usr/local/bin
           chmod +x /usr/local/bin/tflint
+          echo "tflint installed successfully."
 
-          # Initialize tflint
-          tflint --init
+          echo "Initializing tflint plugins..."
+          tflint --init || { echo "tflint initialization failed"; exit 1; }
 
-          # Run tflint using IAC/.tflint.hcl configuration and updated command syntax
-          tflint --config=${{ github.workspace }}/IAC/.tflint.hcl --chdir=${{ env.dir }}
+      - name: Run tflint
+        run: |
+          echo "Running tflint with configuration file..."
+          tflint --config=${{ github.workspace }}/IAC/.tflint.hcl --chdir=${{ env.dir }} || { echo "tflint execution failed"; exit 1; }
+          echo "tflint ran successfully."
 
       - name: Generate Terraform Plan
         run: terraform plan -out=tfplan
