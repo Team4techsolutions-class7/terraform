@@ -95,6 +95,14 @@ jobs:
         run: terraform validate
         working-directory: ${{ env.dir }}
 
+      - name: Lint Terraform Code
+        run: |
+          # Install tflint
+          curl -s https://raw.githubusercontent.com/terraform-linters/tflint/master/install.sh | bash
+
+          # Run tflint
+          tflint --config ${env.dir}/.tflint.hcl ${{ env.dir }}
+
       - name: Generate Terraform Plan
         run: terraform plan -out=tfplan
         working-directory: ${{ env.dir }}
