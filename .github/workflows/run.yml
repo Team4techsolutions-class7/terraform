@@ -59,43 +59,51 @@ jobs:
             echo "role=arn:aws:iam::456789012345:role/USEastRole" >> $GITHUB_ENV
             echo "region=us-east-1" >> $GITHUB_ENV
           else
-            echo "No relevant changes detected."
-            exit 1
+            echo "No relevant Terraform changes detected. Skipping validation."
+            exit 0
           fi
 
       - name: Set up AWS Credentials
+        if: env.dir != ''
         uses: aws-actions/configure-aws-credentials@v3
         with:
           role-to-assume: ${{ env.role }}
           aws-region: ${{ env.region }}
 
       - name: Verify AWS Identity
+        if: env.dir != ''
         run: aws sts get-caller-identity
 
       - name: Set up Terraform
+        if: env.dir != ''
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.5.7
 
       - name: Debug Environment Variables
+        if: env.dir != ''
         run: |
           echo "Working Directory: ${{ env.dir }}"
           echo "Role to Assume: ${{ env.role }}"
           echo "AWS Region: ${{ env.region }}"
 
       - name: Validate Terraform format
+        if: env.dir != ''
         run: terraform fmt -check
         working-directory: ${{ env.dir }}
 
       - name: Initialize Terraform
+        if: env.dir != ''
         run: terraform init
         working-directory: ${{ env.dir }}
 
       - name: Validate Terraform
+        if: env.dir != ''
         run: terraform validate
         working-directory: ${{ env.dir }}
 
       - name: Install and Initialize tflint
+        if: env.dir != ''
         run: |
           echo "Downloading tflint..."
           curl -L -o tflint.zip https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip
@@ -107,11 +115,13 @@ jobs:
           tflint --init || { echo "tflint initialization failed"; exit 1; }
 
       - name: Run tflint
+        if: env.dir != ''
         run: |
           echo "Running tflint with configuration file..."
           tflint --config=${{ github.workspace }}/IAC/.tflint.hcl --chdir=${{ env.dir }} || { echo "tflint execution failed"; exit 1; }
           echo "tflint ran successfully."
 
       - name: Generate Terraform Plan
+        if: env.dir != ''
         run: terraform plan -out=tfplan
         working-directory: ${{ env.dir }}
