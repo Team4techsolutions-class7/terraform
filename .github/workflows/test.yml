@@ -1,0 +1,167 @@
+name: Terraform Pre-Merge Validation
+
+on:
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform-checks:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Debug Git History
+        run: |
+          echo "HEAD is at: $(git rev-parse HEAD)"
+          echo "Base branch is: origin/${{ github.event.pull_request.base.ref }}"
+          echo "Changes compared to base branch:"
+          git diff --name-only origin/${{ github.event.pull_request.base.ref }}
+
+      - name: Determine Changed Directory
+        id: detect_changes
+        run: |
+          # Ensure the repo is synced
+          git fetch --all
+          # Detect changed files between the base branch and the current branch
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.event.pull_request.base.ref }} HEAD)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          # Extract unique directories containing changed .tf files
+          CHANGED_DIRECTORIES=$(echo "$CHANGED_FILES" | grep '\.tf$' | xargs -n1 dirname | sort | uniq)
+          echo "Detected directories:"
+          echo "$CHANGED_DIRECTORIES"
+
+          # Select the most recently modified directory where changes were made
+          LATEST_DIRECTORY=$(echo "$CHANGED_DIRECTORIES" | xargs -I {} sh -c 'echo "{} $(git log -1 --format="%ct" -- {})"' | sort -k2 -n | tail -n 1 | cut -d' ' -f1)
+          echo "Selected directory for validation: $LATEST_DIRECTORY"
+
+          # Skip validation if no .tf files were changed
+          if [[ -z "$LATEST_DIRECTORY" ]]; then
+            echo "No Terraform-related changes detected. Skipping validation."
+            exit 0
+          fi
+
+          # Export the directory to the environment
+          echo "working_directory=$LATEST_DIRECTORY" >> $GITHUB_ENV
+
+          # Map IAM roles based on the directory
+          case "$LATEST_DIRECTORY" in
+            Terraform/Audit*)
+              echo "role=arn:aws:iam::401708891192:role/github-action-role" >> $GITHUB_ENV
+              ;;
+            Terraform/Development*)
+              echo "role=arn:aws:iam::973334513903:role/github-action-role-dev" >> $GITHUB_ENV
+              ;;
+            Terraform/EMR*)
+              echo "role=arn:aws:iam::235265045598:role/github-action-role-emr" >> $GITHUB_ENV
+              ;;
+            Terraform/Logs-Archive*)
+              echo "role=arn:aws:iam::980766525411:role/github-action-role-logs-archive" >> $GITHUB_ENV
+              ;;
+            Terraform/Production*)
+              echo "role=arn:aws:iam::427174714230:role/github-action-role-prod" >> $GITHUB_ENV
+              ;;
+            Terraform/Reports*)
+              echo "role=arn:aws:iam::831286133761:role/github-action-role-reports" >> $GITHUB_ENV
+              ;;
+            Terraform/Shared-Services/service-account*)
+              echo "role=arn:aws:iam::338674575706:role/github-action-terraform-central-role" >> $GITHUB_ENV
+              ;;
+            Terraform/Staging*)
+              echo "role=arn:aws:iam::237781716992:role/github-action-role-staging" >> $GITHUB_ENV
+              ;;
+            *)
+              echo "No matching role for directory $LATEST_DIRECTORY."
+              exit 1
+              ;;
+          esac
+
+      - name: Set up AWS Credentials (Shared-Services)
+        if: env.working_directory != ''
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          role-to-assume: arn:aws:iam::338674575706:role/github-action-terraform-central-role
+          aws-region: ca-central-1
+
+      - name: Assume Role for Target Environment
+        if: env.working_directory != ''
+        run: |
+          TEMP_CREDS=$(aws sts assume-role --role-arn ${{ env.role }} --role-session-name CrossAccountSession)
+          echo "AWS_ACCESS_KEY_ID=$(echo $TEMP_CREDS | jq -r .Credentials.AccessKeyId)" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=$(echo $TEMP_CREDS | jq -r .Credentials.SecretAccessKey)" >> $GITHUB_ENV
+          echo "AWS_SESSION_TOKEN=$(echo $TEMP_CREDS | jq -r .Credentials.SessionToken)" >> $GITHUB_ENV
+
+      - name: Verify AWS Identity
+        if: env.working_directory != ''
+        run: aws sts get-caller-identity
+
+      - name: Set up Terraform
+        if: env.working_directory != ''
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.7
+
+      - name: Debug Environment Variables
+        if: env.working_directory != ''
+        run: |
+          echo "Working Directory: ${{ env.working_directory }}"
+          echo "IAM Role: ${{ env.role }}"
+
+      - name: Export Public and Private Keys
+        if: env.working_directory != ''
+        run: |
+          echo "Exporting public and private keys..."
+          echo "TF_VAR_atlas_public_key=${{ secrets.MONGO_PUBLIC_KEY }}" >> $GITHUB_ENV
+          echo "TF_VAR_atlas_private_key=${{ secrets.MONGO_PRIVATE_KEY }}" >> $GITHUB_ENV
+
+      - name: Clean Working Directory
+        if: env.working_directory != ''
+        run: |
+          echo "Cleaning Terraform cache and temporary files..."
+          rm -rf ${{ env.working_directory }}/.terraform
+          rm -f ${{ env.working_directory }}/.terraform.lock.hcl
+
+      - name: Install and Initialize tflint
+        if: env.working_directory != ''
+        run: |
+          echo "Downloading tflint..."
+          curl -L -o tflint.zip https://github.com/terraform-linters/tflint/releases/latest/download/tflint_linux_amd64.zip
+          unzip tflint.zip -d /usr/local/bin
+          chmod +x /usr/local/bin/tflint
+          echo "tflint installed successfully."
+          echo "Initializing tflint plugins..."
+          tflint --init || { echo "tflint initialization failed"; exit 1; }
+
+      - name: Run tflint
+        if: env.working_directory != ''
+        run: |
+          echo "Running tflint with configuration file..."
+          tflint --config=${{ github.workspace }}/Terraform/.tflint.hcl --chdir=${{ env.working_directory }} || { echo "tflint execution failed"; exit 1; }
+          echo "tflint ran successfully."
+
+      - name: Initialize Terraform
+        if: env.working_directory != ''
+        run: terraform init -reconfigure
+        working-directory: ${{ env.working_directory }}
+
+      - name: Validate Terraform
+        if: env.working_directory != ''
+        run: terraform validate
+        working-directory: ${{ env.working_directory }}
