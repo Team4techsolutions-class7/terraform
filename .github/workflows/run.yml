@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   terraform-checks:
-    name: Validate Terraform
+    name: Validate Terraform & Security Scan
     runs-on: ubuntu-latest
 
     steps:
@@ -30,7 +30,6 @@ jobs:
       - name: Determine Changed Directory
         id: detect_changes
         run: |
-          # Detect the directory with changes
           CHANGED_FILES=$(git diff --name-only ${{ github.event.pull_request.base.sha }})
           echo "Changed files: $CHANGED_FILES"
 
@@ -101,6 +100,37 @@ jobs:
         if: env.dir != ''
         run: terraform validate
         working-directory: ${{ env.dir }}
+
+      # 🔒 SECURITY SCANNING STEPS
+
+      - name: Install Checkov
+        if: env.dir != ''
+        run: pip install checkov
+      
+      - name: Run Checkov Security Scan
+        if: env.dir != ''
+        run: checkov -d ${{ env.dir }}
+
+      - name: Install tfsec
+        if: env.dir != ''
+        run: |
+          curl -L -o tfsec https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64
+          chmod +x tfsec
+          sudo mv tfsec /usr/local/bin/
+
+      - name: Run tfsec Scan
+        if: env.dir != ''
+        run: tfsec ${{ env.dir }}
+
+      - name: Install Trivy
+        if: env.dir != ''
+        run: |
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
+          sudo mv trivy /usr/local/bin/
+      
+      - name: Run Trivy IaC Scan
+        if: env.dir != ''
+        run: trivy config --exit-code 1 --severity HIGH,CRITICAL ${{ env.dir }}
 
       - name: Install and Initialize tflint
         if: env.dir != ''
