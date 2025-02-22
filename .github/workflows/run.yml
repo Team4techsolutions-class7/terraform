@@ -101,12 +101,12 @@ jobs:
         run: terraform validate
         working-directory: ${{ env.dir }}
 
-       🔒 SECURITY SCANNING STEPS
+      # SECURITY SCANNING STEPS
 
       - name: Install Checkov
         if: env.dir != ''
         run: pip install checkov
-      
+
       - name: Run Checkov Security Scan
         if: env.dir != ''
         run: checkov -d ${{ env.dir }}
@@ -127,7 +127,7 @@ jobs:
         run: |
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh
           sudo mv trivy /usr/local/bin/
-      
+
       - name: Run Trivy IaC Scan
         if: env.dir != ''
         run: trivy config --exit-code 1 --severity HIGH,CRITICAL ${{ env.dir }}
