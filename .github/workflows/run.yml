@@ -101,15 +101,15 @@ jobs:
         run: terraform validate
         working-directory: ${{ env.dir }}
 
-      # 🔒 SECURITY SCANNING STEPS
+       🔒 SECURITY SCANNING STEPS
 
-      #- name: Install Checkov
-       # if: env.dir != ''
-       # run: pip install checkov
+      - name: Install Checkov
+        if: env.dir != ''
+        run: pip install checkov
       
-     # - name: Run Checkov Security Scan
-      #  if: env.dir != ''
-      #  run: checkov -d ${{ env.dir }}
+      - name: Run Checkov Security Scan
+        if: env.dir != ''
+        run: checkov -d ${{ env.dir }}
 
       - name: Install tfsec
         if: env.dir != ''
